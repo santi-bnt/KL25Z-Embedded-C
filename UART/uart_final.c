@@ -181,9 +181,9 @@ void stepper_step(void)
 
     pasos_totales += dir;
 
-    if(pasos_totales >= 2048)
+    if(pasos_totales >= 1024)
     {
-        pasos_totales = 2048;
+        pasos_totales = 1024;
         dir = -1;
     }
 
@@ -193,7 +193,7 @@ void stepper_step(void)
         dir = 1;
     }
 
-    angulo = (pasos_totales * 180) / 2048;
+    angulo = (pasos_totales * 180) / 1024;
 }
 
 //=========================
