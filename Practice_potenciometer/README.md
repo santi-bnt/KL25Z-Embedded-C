@@ -26,7 +26,7 @@ The system runs continuously, so changes in the potentiometer position are refle
 
 ## Pin Configuration
 
-### Potentiometer
+### Potentiometer   
 
 | Component | KL25Z Pin |
 |---|---|
