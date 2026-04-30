@@ -1,10 +1,10 @@
 """
-Radar Display — reads UART data from KL25Z and renders a live 2D radar.
+Radar Display — lee datos UART de la KL25Z y dibuja un radar 2D en vivo.
 
-Expected serial protocol:
-    ANGLE,DISTANCE
+Formato esperado desde la KL25Z:
+    ANGULO,DISTANCIA
 
-Example:
+Ejemplo:
     90,45
 """
 
@@ -17,7 +17,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
-# ── Configuration ─────────────────────────────────────────────────────────────
+# ── Configuración ─────────────────────────────────────────────────────────────
 BAUD_RATE    = 57600
 MAX_RANGE_CM = 200
 SWEEP_TRAIL  = 5
@@ -30,23 +30,19 @@ def pick_serial_port():
     ports = serial.tools.list_ports.comports()
 
     if not ports:
-        print("No serial ports found. Running in DEMO_MODE.")
+        print("No se encontraron puertos seriales.")
         return None
 
-    if len(ports) == 1:
-        print(f"Using port: {ports[0].device}")
-        return ports[0].device
-
-    print("Available serial ports:")
+    print("Puertos disponibles:")
     for i, p in enumerate(ports):
         print(f"[{i}] {p.device} - {p.description}")
 
     while True:
         try:
-            idx = int(input("Select port number: "))
+            idx = int(input("Selecciona el puerto de la KL25Z: "))
             return ports[idx].device
         except (ValueError, IndexError):
-            print("Invalid selection, try again.")
+            print("Selección inválida, intenta otra vez.")
 
 
 class RadarData:
@@ -83,7 +79,7 @@ class RadarData:
 def serial_reader(port, baud, data):
     try:
         with serial.Serial(port, baud, timeout=1) as ser:
-            print(f"Serial open on {port} @ {baud}")
+            print(f"Serial abierto en {port} @ {baud}")
 
             while True:
                 raw = ser.readline().decode(errors="ignore").strip()
@@ -110,7 +106,7 @@ def serial_reader(port, baud, data):
                     continue
 
     except serial.SerialException as e:
-        print(f"Serial error: {e}")
+        print(f"Error serial: {e}")
 
 
 def demo_reader(data):
@@ -192,7 +188,7 @@ def make_artists(ax):
     echo_scatter = ax.scatter(
         [],
         [],
-        s=40,
+        s=45,
         c=[],
         cmap="Greens",
         vmin=0,
@@ -203,7 +199,7 @@ def make_artists(ax):
     status_text = ax.text(
         0.5,
         -0.08,
-        "Waiting for data...",
+        "Esperando datos...",
         transform=ax.transAxes,
         ha="center",
         va="top",
@@ -223,18 +219,15 @@ def update_frame(_, ax, data, sweep_line, trail_patch, echo_scatter, status_text
     current_angle, echoes, frame = data.snapshot()
     angle_rad = math.radians(current_angle)
 
-    # Línea del radar
     sweep_line.set_data(
         [angle_rad, angle_rad],
         [0, MAX_RANGE_CM]
     )
 
-    # Borrar rastro anterior
     if trail_patch[0] is not None:
         trail_patch[0].remove()
         trail_patch[0] = None
 
-    # Rastro verde
     trail_start = math.radians(max(0, current_angle - SWEEP_TRAIL))
     trail_end = angle_rad
 
@@ -253,7 +246,6 @@ def update_frame(_, ax, data, sweep_line, trail_patch, echo_scatter, status_text
             zorder=4
         )[0]
 
-    # Puntos detectados
     if echoes:
         angles = [math.radians(a) for a in echoes.keys()]
         distances = [d for d, _ in echoes.values()]
@@ -269,29 +261,28 @@ def update_frame(_, ax, data, sweep_line, trail_patch, echo_scatter, status_text
         echo_scatter.set_offsets(np.empty((0, 2)))
 
     status_text.set_text(
-        f"Angle: {current_angle:>3}°   "
-        f"Objects: {len(echoes)}   "
-        f"Range: {MAX_RANGE_CM} cm"
+        f"Ángulo: {current_angle:>3}°   "
+        f"Objetos: {len(echoes)}   "
+        f"Rango: {MAX_RANGE_CM} cm"
     )
 
     return sweep_line, echo_scatter, status_text
 
 
 def main():
-    global DEMO_MODE
-
     port = None
 
     if not DEMO_MODE:
         port = pick_serial_port()
 
         if port is None:
-            DEMO_MODE = True
+            print("No hay puerto serial disponible.")
+            return
 
     data = RadarData()
 
     if DEMO_MODE:
-        print("Running in DEMO MODE.")
+        print("Corriendo en DEMO_MODE.")
         thread = threading.Thread(
             target=demo_reader,
             args=(data,),
