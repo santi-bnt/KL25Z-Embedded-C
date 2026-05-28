@@ -1,48 +1,35 @@
-module ALU_decoder(
-    input  [1:0]  ALUOp,
-    input  [2:0]  funct3,
-    input         op5,
-    input         funct7_5,
-    output [31:0] result,
-    output        Zero
+module ALU_decoder(                     // Decide que operacion hara la ALU usando aluop, funct3 y funct7
+    input  [1:0] Alu_op,
+    input  [2:0] funct3,
+    input        op,
+    input        funct7,
+    output reg [2:0] Alu_Control
 );
-reg  [31:0] A,
-reg [31:0] B,
-reg [2:0] Alucontrol;
 
 always @(*) begin
-    case (ALUOp)
-        2'b00: Alucontrol = 3'b000; 
-        2'b01: Alucontrol = 3'b001; 
+    case (Alu_op)
+        2'b00: Alu_Control = 0;  // lw/sw
+        2'b01: Alu_Control = 1;  // beq
 
         2'b10: begin
             case (funct3)
-                3'b000: begin
-                    if (op5 && funct7_5)
-                        Alucontrol = 3'b001; 
+                3'b000: begin                  
+                    if (op && funct7)
+                        Alu_Control = 1;           // subtract
                     else
-                        Alucontrol = 3'b000; 
+                        Alu_Control = 0;         // add
                 end
 
-                3'b010: Alucontrol = 3'b101; 
-                3'b110: Alucontrol = 3'b011; 
-                3'b111: Alucontrol = 3'b010; 
+                3'b010: Alu_Control = 3'b101;  //slt
+                3'b110: Alu_Control = 3'b011;  //or 
+                3'b111: Alu_Control = 3'b010;  //and
 
-                default: Alucontrol = 3'b000;
+                default: Alu_Control = 0;
             endcase
         end
 
-        default: Alucontrol = 3'b000;
+        default: Alu_Control = 0;
     endcase
 end
 
-ALU DECODER (
-    .A(A),
-    .B(B),
-    .Alucontrol(Alucontrol),
-    .result(result),
-    .Zero(Zero)
-);
-
 endmodule
-
