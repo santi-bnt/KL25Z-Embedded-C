@@ -41,6 +41,7 @@ adder pc_adder(
 );
 
 Instruction_memory imem(
+    .clk(clk),
     .A(pc),
     .RD(instr)
 );

@@ -20,6 +20,10 @@ begin
     2'b10:
         ImmExt = {{19{instr[31]}}, instr [31], instr [7], instr[30:25], instr[11:8],1'b0};
 
+    //J-type
+    2'b11: 
+        ImmExt = {{12{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0};
+
     default: ImmExt = 0;
 
     endcase

@@ -1,5 +1,5 @@
 $date
-	Fri May 29 12:01:38 2026
+	Fri May 29 12:15:44 2026
 $end
 $version
 	Icarus Verilog
@@ -92,8 +92,9 @@ $var wire 25 R instr [31:7] $end
 $var reg 32 S ImmExt [31:0] $end
 $upscope $end
 $scope module imem $end
-$var wire 32 T RD [31:0] $end
-$var wire 32 U A [31:0] $end
+$var wire 1 ! clk $end
+$var wire 32 T A [31:0] $end
+$var reg 32 U RD [31:0] $end
 $upscope $end
 $scope module mux_alu_src $end
 $var wire 32 V b [31:0] $end
@@ -233,6 +234,22 @@ $end
 0!
 0"
 #15
+b0 +
+b0 `
+b0 l
+b100 %
+b100 [
+b100 _
+b100 b
+b0 '
+b0 T
+b0 c
+b0 e
+b0 f
+1!
+#20
+0!
+#25
 b101 6
 b101 :
 b101 N
@@ -240,6 +257,9 @@ b101 \
 b100 &
 b100 Y
 b100 d
+b101 +
+b101 `
+b101 l
 b101 )
 b101 7
 b101 W
@@ -276,8 +296,8 @@ b0 A
 b0 J
 b0 Q
 1,
-b1010000000000001 R
-b1 k
+b1010000000000101 R
+b101 k
 b101 j
 b0 i
 0>
@@ -285,28 +305,18 @@ b0 =
 b0 D
 b10011 ?
 b10011 H
-b101 +
-b101 `
-b101 l
-b10100000000000010010011 (
-b10100000000000010010011 T
-b100 %
-b100 [
-b100 _
-b100 b
-b0 '
-b0 U
-b0 c
-b0 e
-b0 f
-1!
-#20
-0!
-#25
+b10100000000001010010011 (
+b10100000000001010010011 U
 1!
 #30
 0!
 #35
+0#
+b101 .
+b101 ;
+b101 P
+b101 X
+b101 n
 1!
 #40
 0!

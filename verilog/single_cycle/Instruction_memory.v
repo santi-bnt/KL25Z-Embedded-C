@@ -1,15 +1,22 @@
-module Instruction_memory(       //Guarda las instrucciones y da una para que se ejecute
+module Instruction_memory(
+    input clk,
     input [31:0] A,
-    output [31:0] RD
+    output reg [31:0] RD
 );
 
-reg [31:0] memory [0:255];
+reg [31:0] instr_mem [0:255];
 
-// Lee la memoria 
 initial begin
-   $readmemh("test_program.mem", memory);
+    $readmemh("test_program.mem", instr_mem);
+
+    $display("instr_mem[0] = %h", instr_mem[0]);
+    $display("instr_mem[1] = %h", instr_mem[1]);
+    $display("instr_mem[2] = %h", instr_mem[2]);
 end
 
-assign RD = memory[A[31:2]];
+always @(posedge clk)
+begin
+    RD <= instr_mem[A[31:2]];
+end
 
 endmodule
