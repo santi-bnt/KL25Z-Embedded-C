@@ -25,18 +25,9 @@ end
 
 
 initial begin
-    $display("Time | clk | rst | PC | Instr | ALUResult | Result | RegWrite | MemWrite | PCSrc");
-    $monitor("%0t | %b | %b | %h | %h | %h | %h | %b | %b | %b",
-             $time,
-             clk,
-             rst,
-             dut.pc,
-             dut.instr,
-             dut.ALUResult,
-             dut.Result,
-             dut.RegWrite,
-             dut.MemWrite,
-             dut.PCSrc);
+    $display("clk | rst | PC | Instr | ALUResult | Result | RegWrite | MemWrite | PCSrc");
+    $monitor("%b | %b | %h | %h | %h | %h | %b | %b | %b",
+    clk,rst,dut.pc,dut.instr,dut.ALUResult,dut.Result,dut.RegWrite,dut.MemWrite,dut.PCSrc);
 end
 
 endmodule
