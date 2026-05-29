@@ -1,4 +1,4 @@
-module Instruction_memory( 
+module Instruction_memory(          //leer memoria
 	input clk,
 	input [31:0] A,
 	

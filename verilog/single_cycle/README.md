@@ -28,7 +28,7 @@ single_cycle/
 ├── mux3.v
 ├── adder.v
 ├── branch_comparator.v
-├── test_program.mem
+├── instrMem.hex
 └── README.md
 ```
 
