@@ -1,5 +1,4 @@
 /*
- * intel_b.c - FreeRTOS KL25Z
  *
  * Parte 3 usando:
  * - LDR real por ADC directo en registros

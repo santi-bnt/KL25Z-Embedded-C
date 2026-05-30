@@ -1,174 +1,81 @@
-# Parte 3 - Lectura de sensores de luminosidad y temperatura
+# Parte 3 - Lectura de Luminosidad y Temperatura
 
-## Descripción
+## Descripción de la parte 3
 
-En esta parte de la práctica se modificaron las tareas `vLightSensor` y `vTempSensor` para leer datos provenientes de sensores físicos. El objetivo fue utilizar el ADC de la KL25Z para obtener valores analógicos y convertirlos a unidades útiles mediante una fórmula basada en la resolución configurada del ADC.
+En esta parte se modificaron las tareas `vLightSensor` y `vTempSensor` para leer datos de luminosidad y temperatura. El sistema utiliza una entrada analógica para la luminosidad y un sensor DHT11 para temperatura y humedad.
 
-El sistema trabaja con:
-
-* Sensor de luminosidad mediante LDR.
-* Sensor de temperatura analógico, recomendado LM35.
-* ADC configurado a 12 bits.
-* FreeRTOS para ejecutar tareas independientes.
-* Terminal serial para visualizar los datos obtenidos.
-
----
-
-## Objetivo
-
-Modificar las tareas de lectura para que obtengan datos reales de sensores:
-
-* `vLightSensor`: leer el sensor de luminosidad.
-* `vTempSensor`: leer el sensor de temperatura.
-
-Además, se debe aplicar una fórmula de conversión similar a la vista en clase:
+La instrucción menciona usar una fórmula similar a:
 
 ```c
 temperature = result * 330.0 / 65536;
 ```
 
-Sin embargo, el divisor debe ajustarse de acuerdo con la resolución configurada del ADC.
+Sin embargo, esa fórmula aplica para sensores analógicos conectados al ADC, como el LM35. En este caso se utilizó un DHT11, el cual no entrega una señal analógica, sino datos digitales por GPIO. Por eso, la fórmula del ADC no se aplicó directamente a la temperatura.
+
+La fórmula sí se aplicó a la lectura analógica de luminosidad, ajustando la resolución del ADC configurado a 12 bits.
 
 ---
 
-## Resolución del ADC
+## Conversión del ADC
 
-En esta práctica el ADC se configuró a 12 bits. Esto significa que la lectura del ADC puede tomar valores desde 0 hasta 4095.
+La fórmula de la diapositiva usa `65536`, lo cual corresponde a un ADC de 16 bits:
+
+```text
+2^16 = 65536
+```
+
+En este proyecto el ADC está configurado a 12 bits, por lo que se usa:
 
 ```text
 2^12 = 4096
 ```
 
-Por lo tanto, en lugar de usar `65536`, que corresponde a un ADC de 16 bits, se usa `4096`.
-
-La fórmula general es:
-
-```c
-valor_convertido = result * escala / resolucion;
-```
-
-Para un ADC de 12 bits:
-
-```c
-valor_convertido = result * escala / 4096;
-```
-
----
-
-## Sensor de temperatura LM35
-
-El LM35 es un sensor analógico de temperatura. Su salida cambia linealmente con la temperatura.
-
-La relación del LM35 es:
-
-```text
-10 mV = 1 °C
-```
-
-Como la KL25Z trabaja con una referencia de 3.3 V, se puede convertir la lectura del ADC a temperatura usando:
-
-```c
-temperature = result * 330.0 / 4096.0;
-```
-
-Donde:
-
-* `result` es la lectura del ADC.
-* `330.0` representa 3.3 V convertidos a grados Celsius, considerando que el LM35 entrega 10 mV por cada °C.
-* `4096.0` corresponde a la resolución del ADC de 12 bits.
-
-También puede expresarse en dos pasos:
-
-```c
-voltage = result * 3.3 / 4096.0;
-temperature = voltage * 100.0;
-```
-
-Ambas formas son equivalentes.
-
----
-
-## Conexión del LM35
-
-```text
-LM35        KL25Z
-VCC   --->  3.3V
-GND   --->  GND
-VOUT  --->  Pin ADC para temperatura
-```
-
-Ejemplo de conexión:
-
-```text
-LM35 VOUT ---> PTB2 / ADC0_SE12
-```
-
----
-
-## Sensor de luminosidad LDR
-
-Para medir luminosidad se utiliza una LDR conectada como divisor de voltaje junto con una resistencia de 10 kΩ.
-
-La conexión recomendada es:
-
-```text
-3.3V
- |
-[LDR]
- |
- |------ Pin ADC de luz
- |
-[10 kΩ]
- |
-GND
-```
-
-Ejemplo:
-
-```text
-Punto medio del divisor ---> PTB1 / ADC0_SE9
-```
-
-La lectura del ADC representa el nivel de luminosidad. Para obtener el voltaje aproximado se puede usar:
-
-```c
-light_voltage = result * 3.3 / 4096.0;
-```
-
-O en milivolts:
+Para convertir la lectura de luminosidad a voltaje se usó:
 
 ```c
 light_voltage_mv = result * 3300 / 4096;
 ```
 
+Donde:
+
+```text
+result = lectura del ADC
+3300 = voltaje de referencia en milivolts
+4096 = resolución del ADC de 12 bits
+```
+
 ---
 
-## Calibración del sensor de luz
+## Sensor de luminosidad
 
-Para definir el threshold del sensor de luz, primero se deben medir dos valores:
-
-```text
-Valor mínimo: lectura cuando el sensor está oscuro.
-Valor máximo: lectura cuando el sensor está iluminado.
-```
-
-Ejemplo:
+La luminosidad se lee mediante el ADC en el pin:
 
 ```text
-Valor en oscuridad: 300
-Valor con luz: 3000
+PTB1 / ADC0_SE9
 ```
 
-Con esos valores se elige un threshold intermedio:
+Conexión:
 
 ```text
-Threshold elegido: 1800
+Entrada de luminosidad:
+
+Extremo 1  -> 3.3V
+Extremo 2  -> GND
+Centro     -> PTB1 / ADC0_SE9
 ```
 
-Después se puede clasificar el estado de luz:
+Para definir el threshold se tomaron valores mínimo y máximo:
+
+```text
+Valor mínimo: PEGAR_VALOR_AQUI
+Valor máximo: PEGAR_VALOR_AQUI
+Threshold elegido: PEGAR_VALOR_AQUI
+```
+
+El threshold permite clasificar la lectura como baja u alta luminosidad.
 
 ```c
-if(light_value < LIGHT_THRESHOLD)
+if(light_raw < LIGHT_THRESHOLD)
 {
     PRINTF("Light status: DARK\r\n");
 }
@@ -178,7 +85,53 @@ else
 }
 ```
 
-El valor exacto del threshold depende de las mediciones reales obtenidas durante la prueba.
+---
+
+## Sensor de temperatura y humedad DHT11
+
+Para temperatura se utilizó un DHT11. Este sensor mide temperatura y humedad, pero no se lee por ADC. Su lectura se realiza mediante comunicación digital por un pin GPIO.
+
+Conexión:
+
+```text
+DHT11:
+
+VCC  -> 3.3V
+GND  -> GND
+DATA -> PTC2
+```
+
+También se recomienda usar una resistencia pull-up:
+
+```text
+3.3V ---- 10 kΩ ---- DATA / PTC2
+```
+
+El DHT11 entrega directamente:
+
+```text
+Temperatura en °C
+Humedad relativa en %
+```
+
+Por eso, en esta parte no se usó la fórmula del ADC para temperatura. La temperatura se obtiene directamente del dato digital enviado por el DHT11.
+
+---
+
+## Botón
+
+También se utilizó un botón como entrada digital.
+
+```text
+PTB0 ---- botón ---- 3.3V
+```
+
+Lógica usada:
+
+```text
+0 = no presionado
+1 = presionado
+```
 
 ---
 
@@ -186,48 +139,60 @@ El valor exacto del threshold depende de las mediciones reales obtenidas durante
 
 ### `vLightSensor`
 
-Esta tarea se encarga de leer el valor analógico del sensor de luminosidad mediante el ADC. Después, envía el valor leído para que pueda ser mostrado en la terminal o usado por otra tarea.
-
-Ejemplo de conversión:
+Esta tarea lee el valor analógico de luminosidad:
 
 ```c
-light_voltage_mv = result * 3300 / 4096;
+result = ADC0_ReadChannel(ADC_CH_LIGHT);
 ```
+
+Después, el valor se envía por queue:
+
+```c
+msg.type = SENSOR_LIGHT;
+msg.value = result;
+xQueueSend(sensorQueue, &msg, pdMS_TO_TICKS(10));
+```
+
+---
 
 ### `vTempSensor`
 
-Esta tarea se encarga de leer el valor analógico del sensor de temperatura. Si se usa LM35, la lectura del ADC se convierte a grados Celsius con:
+Esta tarea lee el DHT11 y obtiene temperatura y humedad:
 
 ```c
-temperature = result * 330.0 / 4096.0;
-```
+if(DHT11_Read(&temperature, &humidity))
+{
+    msgTemp.type = SENSOR_TEMP;
+    msgTemp.value = temperature;
+    xQueueSend(sensorQueue, &msgTemp, pdMS_TO_TICKS(10));
 
-Esto permite mostrar la temperatura real en °C en la terminal serial.
+    msgHumidity.type = SENSOR_HUMIDITY;
+    msgHumidity.value = humidity;
+    xQueueSend(sensorQueue, &msgHumidity, pdMS_TO_TICKS(10));
+}
+```
 
 ---
 
 ## Salida esperada en terminal
 
-Un ejemplo de salida esperada es:
-
 ```text
-Light raw: 300 | Light voltage: 241 mV | Light status: DARK
-Temperature raw: 320 | Temperature: 25.78 C
-
-Light raw: 3000 | Light voltage: 2416 mV | Light status: BRIGHT
-Temperature raw: 335 | Temperature: 26.98 C
+Light raw: 350 | Light voltage: 281 mV | Light: 8 % | Temp DHT11: 25 C | Humidity: 50 % | Button: 0
+Light status: DARK
+Temperature status: NORMAL
+Button status: NOT PRESSED | Button value: 0
 ```
 
 ---
 
-## Nota sobre el DHT11
+## Liga al video
 
-Aunque inicialmente se consideró usar DHT11, este sensor no entrega una señal analógica. El DHT11 funciona mediante comunicación digital por un pin GPIO, por lo que no utiliza directamente la fórmula de conversión del ADC.
-
-Por esta razón, para cumplir mejor con la instrucción de aplicar una fórmula basada en la lectura del ADC, es más adecuado usar un sensor analógico como el LM35.
+```text
+https://drive.google.com/file/d/1p4wGMJ25Cfc5pDbM9Z84csHmh2bGohwo/view?usp=sharing
+```
 
 ---
 
 ## Conclusión
 
-En esta parte se implementó la lectura de sensores usando el ADC de la KL25Z. Para que las conversiones fueran correctas, se tomó en cuenta que el ADC estaba configurado a 12 bits, por lo que se utilizó `4096` como resolución. El sensor de luz se calibró obteniendo valores mínimo y máximo para definir un threshold, mientras que el sensor de temperatura LM35 permitió convertir directamente la lectura analógica a grados Celsius.
+En esta parte se modificaron las tareas para leer luminosidad y temperatura. La luminosidad se leyó mediante ADC, por lo que se aplicó una fórmula de conversión ajustada a 12 bits usando `4096`. Para temperatura se utilizó el DHT11, que entrega datos digitales de temperatura y humedad, por lo que no se aplicó directamente la fórmula del ADC a ese sensor.
