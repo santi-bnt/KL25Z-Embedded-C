@@ -4,7 +4,7 @@
 
 En esta parte se modificaron las tareas `vLightSensor` y `vTempSensor` para leer datos de luminosidad y temperatura. El sistema utiliza una entrada analógica para la luminosidad y un sensor DHT11 para temperatura y humedad.
 
-La instrucción menciona usar una fórmula similar a:
+La instrucción decia que usaramos la fórmula:
 
 ```c
 temperature = result * 330.0 / 65536;
