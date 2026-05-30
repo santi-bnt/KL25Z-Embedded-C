@@ -6,12 +6,10 @@ module PC(                        //Program_counter: guarda la direccion actual 
 
 always @(posedge clk or posedge rst)
 begin
-    if (rst == 0)
-        pc <= 0;
+    if (rst == 1)
+        pc <= 32'd0;
     else
         pc <= pc_next;
-
 end
-
 
 endmodule
