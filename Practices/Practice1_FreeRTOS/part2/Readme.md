@@ -1,16 +1,36 @@
-# Parte 2 - FreeRTOS con Queues
+# Parte 2 - Safe Data Exchange
 
-## Ventajas de usar queues
+## Descripcion
 
-Las queues permiten comunicar tareas de forma más ordenada y segura mediante mensajes. Esto evita depender directamente de variables globales y reduce errores cuando varias tareas trabajan al mismo tiempo. Además, hacen que el código sea más modular, fácil de mantener y más sencillo de depurar.
+En esta parte se reemplazan las variables globales de la Parte 1 por una queue de FreeRTOS.
 
-## Descripción
+Cada tarea productora manda un mensaje de tipo `sensor_msg_t` hacia `sensorQueue`, y la tarea `vTaskSystemControl` duerme hasta recibir un dato nuevo.
 
-En esta parte se implementó el mismo sistema de la Parte 1, pero usando queues para comunicar las tareas. Los potenciómetros y el botón envían sus valores como mensajes a una queue, y otra tarea recibe esos datos para procesarlos.
+## Objetivo
+
+La Parte 2 corrige el problema de compartir datos con variables globales. Ahora los datos fluyen usando:
+
+```c
+sensorQueue = xQueueCreate(10, sizeof(sensor_msg_t));
+```
+
+Los productores usan:
+
+```c
+xQueueSend(sensorQueue, &msg, pdMS_TO_TICKS(10));
+```
+
+La tarea consumidora usa:
+
+```c
+xQueueReceive(sensorQueue, &msg, portMAX_DELAY);
+```
+
+Esto evita que la tarea de control despierte sin necesidad.
 
 ## Conexiones
 
-### Potenciómetro 1 - Luz
+### Potenciometro 1 - Luz
 
 ```text
 Extremo 1  -> 3.3V
@@ -18,7 +38,7 @@ Extremo 2  -> GND
 Centro     -> PTB1 / ADC0_SE9
 ```
 
-### Potenciómetro 2 - Temperatura
+### Potenciometro 2 - Temperatura
 
 ```text
 Extremo 1  -> 3.3V
@@ -26,21 +46,44 @@ Extremo 2  -> GND
 Centro     -> PTB2 / ADC0_SE12
 ```
 
-### Botón
+### Boton
 
 ```text
-PTB0 ---- botón ---- 3.3V
+PTB0 ---- boton ---- 3.3V
 ```
 
-Lógica del botón:
+El pin `PTB0` usa pull-down interno:
 
 ```text
 0 = no presionado
 1 = presionado
 ```
 
+## Uso de FreeRTOS
+
+Tareas:
+
+- `vTaskLightSensor`
+- `vTaskTemperatureSensor`
+- `vTaskButtonPolling`
+- `vTaskSystemControl`
+
+Sincronizacion:
+
+- `sensorQueue`
+
+En esta parte todavia no se usa mutex para el ADC y el boton todavia usa polling. Esos dos problemas se corrigen en la Parte 3.
+
+## LEDs
+
+```text
+Light < 2048        -> LED azul encendido
+Temperature > 2048  -> LED rojo encendido
+Button = 1          -> LED verde encendido
+```
+
 ## Liga al video
 
 ```text
-https://drive.google.com/file/d/1hdm1lHsiEoUnTVAVh9BfP4-YANX8-wPM/view?usp=sharing
+Pegar aqui la liga del video
 ```

@@ -1,16 +1,20 @@
-# Parte 1 - FreeRTOS con Tareas y Variables Globales
+# Parte 1 - Basic Concurrency
 
-## Reflexión sobre tareas y variables globales
+## Descripcion
 
-El uso de tareas permite dividir el programa en funciones más ordenadas, por ejemplo una tarea para leer luz, otra para temperatura, otra para el botón y otra para mostrar datos. Esto hace que el código sea más fácil de entender. Sin embargo, usar variables globales puede ser una desventaja porque varias tareas pueden leer o modificar los mismos datos al mismo tiempo, lo que puede causar errores difíciles de detectar en sistemas más grandes.
+En esta parte se implementa una version basica con tareas de FreeRTOS, variables globales y polling.
 
-## Descripción
+Esta arquitectura funciona, pero intencionalmente deja visibles dos problemas:
 
-En esta parte se implementó un sistema con FreeRTOS usando varias tareas para leer dos potenciómetros y un botón. El Potenciómetro 1 simula el sensor de luz, el Potenciómetro 2 simula el sensor de temperatura y el botón funciona como entrada digital.
+- Las tareas comparten datos usando variables globales.
+- El boton se revisa periodicamente con polling.
+- El ADC0 no esta protegido si mas de una tarea lo usa.
+
+Estos problemas se corrigen en las partes siguientes.
 
 ## Conexiones
 
-### Potenciómetro 1 - Luz
+### Potenciometro 1 - Luz
 
 ```text
 Extremo 1  -> 3.3V
@@ -18,7 +22,7 @@ Extremo 2  -> GND
 Centro     -> PTB1 / ADC0_SE9
 ```
 
-### Potenciómetro 2 - Temperatura
+### Potenciometro 2 - Temperatura
 
 ```text
 Extremo 1  -> 3.3V
@@ -26,21 +30,54 @@ Extremo 2  -> GND
 Centro     -> PTB2 / ADC0_SE12
 ```
 
-### Botón
+### Boton
 
 ```text
-PTB0 ---- botón ---- 3.3V
+PTB0 ---- boton ---- 3.3V
 ```
 
-Lógica del botón:
+El pin `PTB0` usa pull-down interno:
 
 ```text
 0 = no presionado
 1 = presionado
 ```
 
+## Uso de FreeRTOS
+
+Tareas:
+
+- `vTaskLightSensor`
+- `vTaskTemperatureSensor`
+- `vTaskButtonPolling`
+- `vTaskLedControl`
+- `vTaskSerialMonitor`
+
+Sincronizacion:
+
+- Ninguna.
+
+Comunicacion:
+
+- Variables globales `volatile`.
+
+## LEDs
+
+```text
+Light < 2048        -> LED azul encendido
+Temperature > 2048  -> LED rojo encendido
+Button = 1          -> LED verde encendido
+```
+
+## Pruebas sugeridas
+
+1. Mover los potenciometros y observar los LEDs.
+2. Presionar el boton y observar el LED verde.
+3. Revisar que `vTaskLedControl` despierta cada 200 ms aunque los datos no cambien.
+4. Revisar que el boton usa polling cada 50 ms.
+
 ## Liga al video
 
 ```text
-https://drive.google.com/file/d/1OjviULnFDysXgwU4z_qHrqXBNpSONq-W/view?usp=sharing
+Pegar aqui la liga del video
 ```
