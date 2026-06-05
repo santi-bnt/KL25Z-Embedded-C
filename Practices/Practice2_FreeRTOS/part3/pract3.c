@@ -1,17 +1,19 @@
 /*
  * main.c - FreeRTOS KL25Z
- * Parte 3: Event-driven architecture with Mutexes and Interrupts
+ * Stage 3: Event-Driven Architecture with Mutexes and Interrupts
  *
- * Pot 1  -> PTB1 / ADC0_SE9  (Light)
- * Pot 2  -> PTB2 / ADC0_SE12 (Temperature)
- * Button -> PTB0
+ * Fotoresistencia -> PTB1 / ADC0_SE9
+ * Sensor temp/pot  -> PTB2 / ADC0_SE12
+ * Boton           -> PTA1 / PORTA interrupt
  *
- * Button logic with internal pull-down:
- * 0 = not pressed
- * 1 = pressed
+ * Boton con logica invertida:
+ * PTA1 ---- boton ---- GND
+ * Se usa pull-up interno.
  *
- * Button connection:
- * PTB0 ---- button ---- 3.3V
+ * Sensor analogico de temperatura o potenciometro:
+ * Extremo 1 -> 3.3V
+ * Extremo 2 -> GND
+ * Centro    -> PTB2 / ADC0_SE12
  */
 
 #include <stdio.h>
@@ -60,13 +62,15 @@ SemaphoreHandle_t xButtonSemaphore;
  * Pins and Thresholds
  * ========================= */
 
-#define BUTTON_GPIO GPIOB
-#define BUTTON_PORT PORTB
-#define BUTTON_PIN  0U
+#define BUTTON_GPIO GPIOA
+#define BUTTON_PORT PORTA
+#define BUTTON_PIN  1U
 
 #define ADC_BASE ADC0
+
 #define ADC_CH_LIGHT       9U
 #define ADC_CH_TEMPERATURE 12U
+
 #define ADC_PIN_LIGHT      1U
 #define ADC_PIN_TEMPERATURE 2U
 
@@ -79,7 +83,7 @@ SemaphoreHandle_t xButtonSemaphore;
 
 static void vTaskLightSensor(void *pvParameters);
 static void vTaskTemperatureSensor(void *pvParameters);
-static void vTaskButtonInterrupt(void *pvParameters);
+static void vTaskButtonPolling(void *pvParameters);
 static void vTaskSystemControl(void *pvParameters);
 
 /* =========================
@@ -91,7 +95,7 @@ int main(void)
     gpio_pin_config_t button_config =
     {
         kGPIO_DigitalInput,
-        0,
+        1,
     };
 
     adc16_config_t adc16ConfigStruct;
@@ -100,30 +104,38 @@ int main(void)
     BOARD_InitBootClocks();
     BOARD_InitDebugConsole();
 
-    /* =========================
-     * Button config - PTB0 interrupt
-     * ========================= */
-
+    CLOCK_EnableClock(kCLOCK_PortA);
     CLOCK_EnableClock(kCLOCK_PortB);
+
+    /* =========================
+     * Button config - PTA1 interrupt
+     * ========================= */
 
     PORT_SetPinMux(BUTTON_PORT, BUTTON_PIN, kPORT_MuxAsGpio);
 
     /*
-     * Pull-down interno:
-     * 0 = no presionado
-     * 1 = presionado
+     * Pull-up interno:
+     * Pin fisico = 1 -> no presionado
+     * Pin fisico = 0 -> presionado
+     *
+     * Conexion:
+     * PTA1 ---- boton ---- GND
      */
     BUTTON_PORT->PCR[BUTTON_PIN] |= PORT_PCR_PE_MASK;
-    BUTTON_PORT->PCR[BUTTON_PIN] &= ~PORT_PCR_PS_MASK;
+    BUTTON_PORT->PCR[BUTTON_PIN] |= PORT_PCR_PS_MASK;
 
     GPIO_PinInit(BUTTON_GPIO, BUTTON_PIN, &button_config);
 
+    /* =========================
+     * Analog inputs
+     * ========================= */
+
     /*
-     * PTB1 and PTB2 are used as analog ADC inputs.
-     * Clearing the PCR disables the digital mux for those pins.
+     * PTB1 -> ADC0_SE9  -> Fotoresistencia
+     * PTB2 -> ADC0_SE12 -> Sensor analogico de temperatura o potenciometro
      */
-    BUTTON_PORT->PCR[ADC_PIN_LIGHT] = 0x00000000;
-    BUTTON_PORT->PCR[ADC_PIN_TEMPERATURE] = 0x00000000;
+    PORTB->PCR[ADC_PIN_LIGHT] = 0x00000000;
+    PORTB->PCR[ADC_PIN_TEMPERATURE] = 0x00000000;
 
     /* =========================
      * ADC config
@@ -150,50 +162,52 @@ int main(void)
        (xButtonSemaphore == NULL))
     {
         PRINTF("Error creating FreeRTOS objects\r\n");
+
         while(1)
         {
         }
     }
 
-    /*
-     * Configure interrupt after xButtonSemaphore exists.
-     * PTB0 uses PORTB_IRQHandler on KL25Z.
-     */
+    /* =========================
+     * Configure button interrupt
+     * ========================= */
+
     PORT_ClearPinsInterruptFlags(BUTTON_PORT, (1U << BUTTON_PIN));
     PORT_SetPinInterruptConfig(BUTTON_PORT, BUTTON_PIN, kPORT_InterruptEitherEdge);
-    NVIC_SetPriority(PORTB_IRQn, 3U);
-    EnableIRQ(PORTB_IRQn);
 
-    PRINTF("FreeRTOS KL25Z - Parte 3 Event Driven\r\n");
-    PRINTF("ADC protected with xAdcMutex\r\n");
-    PRINTF("Button PTB0 wakes task using ISR + binary semaphore\r\n");
-    PRINTF("Pot 1 Light -> PTB1 / ADC0_SE9\r\n");
-    PRINTF("Pot 2 Temp  -> PTB2 / ADC0_SE12\r\n");
-    PRINTF("Button logic: 0 = not pressed | 1 = pressed\r\n\r\n");
+    NVIC_SetPriority(PORTA_IRQn, 3U);
+    EnableIRQ(PORTA_IRQn);
+
+    PRINTF("FreeRTOS KL25Z - Stage 3 Event Driven\r\n");
+    PRINTF("ADC0 protected with xAdcMutex\r\n");
+    PRINTF("Button uses PORTA interrupt + binary semaphore\r\n");
+    PRINTF("Light sensor -> PTB1 / ADC0_SE9\r\n");
+    PRINTF("Temperature analog input -> PTB2 / ADC0_SE12\r\n");
+    PRINTF("Button -> PTA1 / PORTA IRQ, inverted logic\r\n\r\n");
 
     xTaskCreate(vTaskLightSensor,
-                "Task1_Light",
+                "Task_Light",
                 configMINIMAL_STACK_SIZE + 100,
                 NULL,
                 2,
                 NULL);
 
     xTaskCreate(vTaskTemperatureSensor,
-                "Task2_Temp",
+                "Task_Temp",
                 configMINIMAL_STACK_SIZE + 100,
                 NULL,
                 2,
                 NULL);
 
-    xTaskCreate(vTaskButtonInterrupt,
-                "Task3_Button",
+    xTaskCreate(vTaskButtonPolling,
+                "Task_Button",
                 configMINIMAL_STACK_SIZE + 100,
                 NULL,
                 1,
                 NULL);
 
     xTaskCreate(vTaskSystemControl,
-                "Task4_System",
+                "Task_System",
                 configMINIMAL_STACK_SIZE + 250,
                 NULL,
                 3,
@@ -208,6 +222,7 @@ int main(void)
 
 /* =========================
  * Task 1: Light Sensor
+ * ADC protected with Mutex
  * ========================= */
 
 static void vTaskLightSensor(void *pvParameters)
@@ -243,7 +258,8 @@ static void vTaskLightSensor(void *pvParameters)
 }
 
 /* =========================
- * Task 2: Temperature Potentiometer
+ * Task 2: Temperature Analog Sensor
+ * ADC protected with Mutex
  * ========================= */
 
 static void vTaskTemperatureSensor(void *pvParameters)
@@ -279,30 +295,46 @@ static void vTaskTemperatureSensor(void *pvParameters)
 }
 
 /* =========================
- * Task 3: Button Interrupt Handler Task
+ * Task 3: Button Event Task
+ * Zero CPU while waiting
  * ========================= */
 
-static void vTaskButtonInterrupt(void *pvParameters)
+static void vTaskButtonPolling(void *pvParameters)
 {
     sensor_msg_t msg;
+    uint16_t physical_value = 1;
 
     while(1)
     {
         /*
-         * Zero-CPU wait: this task sleeps until PORTB_IRQHandler gives
-         * the binary semaphore.
+         * Esta tarea duerme indefinidamente.
+         * Solo despierta cuando PORTA_IRQHandler libera el semaforo.
          */
         if(xSemaphoreTake(xButtonSemaphore, portMAX_DELAY) == pdTRUE)
         {
+            /*
+             * Debounce por software.
+             */
             vTaskDelay(pdMS_TO_TICKS(50));
 
+            /*
+             * Logica invertida:
+             * Pin fisico = 1 -> no presionado
+             * Pin fisico = 0 -> presionado
+             *
+             * Valor enviado:
+             * 0 -> no presionado
+             * 1 -> presionado
+             */
+            physical_value = (uint16_t)GPIO_ReadPinInput(BUTTON_GPIO, BUTTON_PIN);
+
             msg.type = SENSOR_BUTTON;
-            msg.value = (uint16_t)GPIO_ReadPinInput(BUTTON_GPIO, BUTTON_PIN);
+            msg.value = (uint16_t)!physical_value;
 
             xQueueSend(sensorQueue, &msg, pdMS_TO_TICKS(10));
 
             /*
-             * Clear bounce events accumulated during the debounce delay.
+             * Limpia rebotes acumulados durante el debounce.
              */
             while(xSemaphoreTake(xButtonSemaphore, 0) == pdTRUE)
             {
@@ -347,6 +379,10 @@ static void vTaskSystemControl(void *pvParameters)
                     break;
             }
 
+            /*
+             * LED azul: luz.
+             * Si funciona al reves, cambia < por >.
+             */
             if(light_value < LIGHT_THRESHOLD)
             {
                 LED_BLUE_ON();
@@ -356,6 +392,9 @@ static void vTaskSystemControl(void *pvParameters)
                 LED_BLUE_OFF();
             }
 
+            /*
+             * LED rojo: valor analogico de temperatura alto.
+             */
             if(temp_value > TEMP_THRESHOLD)
             {
                 LED_RED_ON();
@@ -365,6 +404,9 @@ static void vTaskSystemControl(void *pvParameters)
                 LED_RED_OFF();
             }
 
+            /*
+             * LED verde: boton presionado.
+             */
             if(button_value == 1U)
             {
                 LED_GREEN_ON();
@@ -376,7 +418,7 @@ static void vTaskSystemControl(void *pvParameters)
 
             if((xTaskGetTickCount() - lastPrintTime) >= pdMS_TO_TICKS(1500))
             {
-                PRINTF("Light: %u | Temp: %u | Button: %u\r\n",
+                PRINTF("Light ADC: %u | Temp ADC: %u | Button: %u\r\n",
                        light_value,
                        temp_value,
                        button_value);
@@ -388,10 +430,10 @@ static void vTaskSystemControl(void *pvParameters)
 }
 
 /* =========================
- * PORTB ISR for PTB0 button
+ * PORTA ISR for button
  * ========================= */
 
-void PORTB_IRQHandler(void)
+void PORTA_IRQHandler(void)
 {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 

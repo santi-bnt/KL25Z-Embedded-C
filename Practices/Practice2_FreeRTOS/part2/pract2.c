@@ -4,14 +4,18 @@
  *
  * Pot 1 -> PTB1 / ADC0_SE9  (Light)
  * Pot 2 -> PTB2 / ADC0_SE12 (Temp)
- * Button -> PTB0
+ * Button -> PTA1
  *
- * Button logic:
- * 0 = not pressed
- * 1 = pressed
+ * Button with inverted logic:
+ * Physical pin = 1 -> not pressed
+ * Physical pin = 0 -> pressed
+ *
+ * Program logic:
+ * Button = 0 -> not pressed
+ * Button = 1 -> pressed
  *
  * Button connection:
- * PTB0 ---- button ---- 3.3V
+ * PTA1 ---- button ---- GND
  */
 
 #include <stdio.h>
@@ -57,12 +61,16 @@ QueueHandle_t sensorQueue;
  * Pins
  * ========================= */
 
-#define BUTTON_PORT GPIOB
-#define BUTTON_PIN  0U
+#define BUTTON_GPIO GPIOA
+#define BUTTON_PORT PORTA
+#define BUTTON_PIN  1U
 
 #define ADC_BASE ADC0
 #define ADC_CH_LIGHT       9U
 #define ADC_CH_TEMPERATURE 12U
+
+#define ADC_PIN_LIGHT      1U
+#define ADC_PIN_TEMPERATURE 2U
 
 #define LIGHT_THRESHOLD 2048
 #define TEMP_THRESHOLD   2048
@@ -82,42 +90,56 @@ static void vTaskSystemControl(void *pvParameters);
 
 int main(void)
 {
+    gpio_pin_config_t button_config =
+    {
+        kGPIO_DigitalInput,
+        1,
+    };
+
+    adc16_config_t adc16ConfigStruct;
+
     BOARD_InitBootPins();
     BOARD_InitBootClocks();
     BOARD_InitDebugConsole();
 
     /* =========================
-     * Button config - PTB0 pull-down
+     * Button config - PTA1 pull-up
      * ========================= */
 
-    gpio_pin_config_t button_config =
-    {
-        kGPIO_DigitalInput,
-        0,
-    };
-
+    CLOCK_EnableClock(kCLOCK_PortA);
     CLOCK_EnableClock(kCLOCK_PortB);
 
-    PORT_SetPinMux(PORTB, BUTTON_PIN, kPORT_MuxAsGpio);
+    PORT_SetPinMux(BUTTON_PORT, BUTTON_PIN, kPORT_MuxAsGpio);
 
     /*
-     * Pull-down interno:
-     * 0 = no presionado
-     * 1 = presionado
+     * Pull-up interno:
+     * Pin fisico = 1 -> no presionado
+     * Pin fisico = 0 -> presionado
      *
      * Conexion:
-     * PTB0 ---- boton ---- 3.3V
+     * PTA1 ---- boton ---- GND
      */
-    PORTB->PCR[BUTTON_PIN] |= PORT_PCR_PE_MASK;
-    PORTB->PCR[BUTTON_PIN] &= ~PORT_PCR_PS_MASK;
+    BUTTON_PORT->PCR[BUTTON_PIN] |= PORT_PCR_PE_MASK;
+    BUTTON_PORT->PCR[BUTTON_PIN] |= PORT_PCR_PS_MASK;
 
-    GPIO_PinInit(BUTTON_PORT, BUTTON_PIN, &button_config);
+    GPIO_PinInit(BUTTON_GPIO, BUTTON_PIN, &button_config);
+
+    /* =========================
+     * Analog pins
+     * ========================= */
+
+    /*
+     * PTB1 -> ADC0_SE9
+     * PTB2 -> ADC0_SE12
+     *
+     * Se limpian los PCR para usarlos como entradas analogicas.
+     */
+    PORTB->PCR[ADC_PIN_LIGHT] = 0x00000000;
+    PORTB->PCR[ADC_PIN_TEMPERATURE] = 0x00000000;
 
     /* =========================
      * ADC config
      * ========================= */
-
-    adc16_config_t adc16ConfigStruct;
 
     ADC16_GetDefaultConfig(&adc16ConfigStruct);
     adc16ConfigStruct.resolution = kADC16_ResolutionSE12Bit;
@@ -136,6 +158,7 @@ int main(void)
     if(sensorQueue == NULL)
     {
         PRINTF("Error creating queue\r\n");
+
         while(1)
         {
         }
@@ -144,8 +167,9 @@ int main(void)
     PRINTF("FreeRTOS KL25Z - Parte 2 with Queues\r\n");
     PRINTF("Pot 1 Light -> PTB1 / ADC0_SE9\r\n");
     PRINTF("Pot 2 Temp  -> PTB2 / ADC0_SE12\r\n");
-    PRINTF("Button      -> PTB0\r\n");
-    PRINTF("Button logic: 0 = not pressed | 1 = pressed\r\n\r\n");
+    PRINTF("Button      -> PTA1, inverted logic\r\n");
+    PRINTF("Physical button: 1 = not pressed | 0 = pressed\r\n");
+    PRINTF("Program button : 0 = not pressed | 1 = pressed\r\n\r\n");
 
     xTaskCreate(vTaskLightSensor,
                 "Task1_Light",
@@ -245,20 +269,36 @@ static void vTaskTemperatureSensor(void *pvParameters)
 }
 
 /* =========================
- * Task 3: Button
+ * Task 3: Button Polling
  * ========================= */
 
 static void vTaskButtonPolling(void *pvParameters)
 {
     sensor_msg_t msg;
+    uint16_t physical_value = 1;
 
     while(1)
     {
+        /*
+         * Boton con logica invertida:
+         * Pin fisico = 1 -> no presionado
+         * Pin fisico = 0 -> presionado
+         *
+         * Valor enviado:
+         * 0 -> no presionado
+         * 1 -> presionado
+         */
+        physical_value = (uint16_t)GPIO_ReadPinInput(BUTTON_GPIO, BUTTON_PIN);
+
         msg.type = SENSOR_BUTTON;
-        msg.value = GPIO_ReadPinInput(BUTTON_PORT, BUTTON_PIN);
+        msg.value = (uint16_t)!physical_value;
 
         xQueueSend(sensorQueue, &msg, pdMS_TO_TICKS(10));
 
+        /*
+         * En Stage 2 todavia hay polling.
+         * Esto se corrige en Stage 3 con interrupciones.
+         */
         vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
@@ -315,7 +355,7 @@ static void vTaskSystemControl(void *pvParameters)
                 LED_RED_OFF();
             }
 
-            if(button_value == 1)
+            if(button_value == 1U)
             {
                 LED_GREEN_ON();
             }
@@ -323,6 +363,11 @@ static void vTaskSystemControl(void *pvParameters)
             {
                 LED_GREEN_OFF();
             }
+
+            PRINTF("Light: %u | Temp: %u | Button: %u\r\n",
+                   light_value,
+                   temp_value,
+                   button_value);
         }
     }
 }

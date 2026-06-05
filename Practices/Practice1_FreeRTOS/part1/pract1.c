@@ -1,6 +1,22 @@
 /*
  * main.c - FreeRTOS KL25Z
- * Example: tasks with sensors without queues or interruptions
+ * Parte 1: Basic Concurrency
+ * Tasks with global variables, polling, no queues, no mutexes, no interrupts
+ *
+ * Pot 1 -> PTB1 / ADC0_SE9  (Light)
+ * Pot 2 -> PTB2 / ADC0_SE12 (Temp)
+ * Button -> PTA1
+ *
+ * Button with inverted logic:
+ * Physical pin = 1 -> not pressed
+ * Physical pin = 0 -> pressed
+ *
+ * Program logic:
+ * Button = 0 -> not pressed
+ * Button = 1 -> pressed
+ *
+ * Button connection:
+ * PTA1 ---- button ---- GND
  */
 
 #include <stdio.h>
@@ -26,16 +42,23 @@ volatile uint16_t light_value = 0;
 volatile uint16_t temp_value = 0;
 volatile uint8_t button_state = 0;
 
-#define BUTTON_PORT GPIOB
-#define BUTTON_PIN 0U /* PTB0 */
+/* =========================
+ * Pins
+ * ========================= */
+
+#define BUTTON_GPIO GPIOA
+#define BUTTON_PORT PORTA
+#define BUTTON_PIN  1U
 
 #define ADC_BASE ADC0
-#define ADC_CH_LIGHT 9U         /* PTB1 / ADC0_SE9 */
-#define ADC_CH_TEMPERATURE 12U  /* PTB2 / ADC0_SE12 */
+#define ADC_CH_LIGHT       9U
+#define ADC_CH_TEMPERATURE 12U
 
-/* Example thresholds */
+#define ADC_PIN_LIGHT      1U
+#define ADC_PIN_TEMPERATURE 2U
+
 #define LIGHT_THRESHOLD 2048
-#define TEMP_THRESHOLD 2048
+#define TEMP_THRESHOLD   2048
 
 /* =========================
  * Prototypes
@@ -53,57 +76,70 @@ static void vTaskSerialMonitor(void *pvParameters);
 
 int main(void)
 {
+    gpio_pin_config_t button_config =
+    {
+        kGPIO_DigitalInput,
+        1,
+    };
+
+    adc16_config_t adc16ConfigStruct;
+
     BOARD_InitBootPins();
     BOARD_InitBootClocks();
     BOARD_InitDebugConsole();
 
     /* =========================
-     * BUTTON CONFIG - PTB0
+     * Button config - PTA1 pull-up
      * ========================= */
 
-    gpio_pin_config_t button_config =
-    {
-        kGPIO_DigitalInput,
-        0,
-    };
-
+    CLOCK_EnableClock(kCLOCK_PortA);
     CLOCK_EnableClock(kCLOCK_PortB);
 
-    PORT_SetPinMux(PORTB, BUTTON_PIN, kPORT_MuxAsGpio);
+    PORT_SetPinMux(BUTTON_PORT, BUTTON_PIN, kPORT_MuxAsGpio);
 
     /*
-     * Pull-down interno:
-     *
-     * Logica:
-     * 0 = no presionado
-     * 1 = presionado
+     * Pull-up interno:
+     * Pin fisico = 1 -> no presionado
+     * Pin fisico = 0 -> presionado
      *
      * Conexion:
-     * PTB0 ---- boton ---- 3.3V
+     * PTA1 ---- boton ---- GND
      */
-    PORTB->PCR[BUTTON_PIN] |= PORT_PCR_PE_MASK;
-    PORTB->PCR[BUTTON_PIN] &= ~PORT_PCR_PS_MASK;
+    BUTTON_PORT->PCR[BUTTON_PIN] |= PORT_PCR_PE_MASK;
+    BUTTON_PORT->PCR[BUTTON_PIN] |= PORT_PCR_PS_MASK;
 
-    GPIO_PinInit(BUTTON_PORT, BUTTON_PIN, &button_config);
+    GPIO_PinInit(BUTTON_GPIO, BUTTON_PIN, &button_config);
 
     /* =========================
-     * ADC CONFIG
+     * Analog pins
      * ========================= */
 
-    adc16_config_t adc16ConfigStruct;
+    /*
+     * PTB1 -> ADC0_SE9
+     * PTB2 -> ADC0_SE12
+     */
+    PORTB->PCR[ADC_PIN_LIGHT] = 0x00000000;
+    PORTB->PCR[ADC_PIN_TEMPERATURE] = 0x00000000;
+
+    /* =========================
+     * ADC config
+     * ========================= */
 
     ADC16_GetDefaultConfig(&adc16ConfigStruct);
     adc16ConfigStruct.resolution = kADC16_ResolutionSE12Bit;
-
     adc16ConfigStruct.enableContinuousConversion = false;
 
     ADC16_Init(ADC_BASE, &adc16ConfigStruct);
     ADC16_EnableHardwareTrigger(ADC_BASE, false);
     ADC16_DoAutoCalibration(ADC_BASE);
 
-    PRINTF("FreeRTOS KL25Z - Tasks with sensors without queues or interruptions\r\n");
-    PRINTF("Button PTB0 configured with internal pull-down\r\n");
-    PRINTF("Button logic: 0 = not pressed | 1 = pressed\r\n\r\n");
+    PRINTF("FreeRTOS KL25Z - Parte 1 Basic Concurrency\r\n");
+    PRINTF("Global variables + polling\r\n");
+    PRINTF("Pot 1 Light -> PTB1 / ADC0_SE9\r\n");
+    PRINTF("Pot 2 Temp  -> PTB2 / ADC0_SE12\r\n");
+    PRINTF("Button      -> PTA1, inverted logic\r\n");
+    PRINTF("Physical button: 1 = not pressed | 0 = pressed\r\n");
+    PRINTF("Program button : 0 = not pressed | 1 = pressed\r\n\r\n");
 
     xTaskCreate(vTaskLightSensor,
                 "Light",
@@ -142,13 +178,13 @@ int main(void)
 
     vTaskStartScheduler();
 
-    while (1)
+    while(1)
     {
     }
 }
 
 /* =========================
- * Tasks
+ * Task 1: Light Sensor
  * ========================= */
 
 static void vTaskLightSensor(void *pvParameters)
@@ -159,12 +195,12 @@ static void vTaskLightSensor(void *pvParameters)
     adcConfigLight.enableInterruptOnConversionCompleted = false;
     adcConfigLight.enableDifferentialConversion = false;
 
-    while (1)
+    while(1)
     {
         ADC16_SetChannelConfig(ADC_BASE, 0U, &adcConfigLight);
 
-        while (0U == (kADC16_ChannelConversionDoneFlag &
-                      ADC16_GetChannelStatusFlags(ADC_BASE, 0U)))
+        while(0U == (kADC16_ChannelConversionDoneFlag &
+                     ADC16_GetChannelStatusFlags(ADC_BASE, 0U)))
         {
         }
 
@@ -174,6 +210,10 @@ static void vTaskLightSensor(void *pvParameters)
     }
 }
 
+/* =========================
+ * Task 2: Temperature Sensor
+ * ========================= */
+
 static void vTaskTemperatureSensor(void *pvParameters)
 {
     adc16_channel_config_t adcConfigTemperature;
@@ -182,12 +222,12 @@ static void vTaskTemperatureSensor(void *pvParameters)
     adcConfigTemperature.enableInterruptOnConversionCompleted = false;
     adcConfigTemperature.enableDifferentialConversion = false;
 
-    while (1)
+    while(1)
     {
         ADC16_SetChannelConfig(ADC_BASE, 0U, &adcConfigTemperature);
 
-        while (0U == (kADC16_ChannelConversionDoneFlag &
-                      ADC16_GetChannelStatusFlags(ADC_BASE, 0U)))
+        while(0U == (kADC16_ChannelConversionDoneFlag &
+                     ADC16_GetChannelStatusFlags(ADC_BASE, 0U)))
         {
         }
 
@@ -197,26 +237,42 @@ static void vTaskTemperatureSensor(void *pvParameters)
     }
 }
 
+/* =========================
+ * Task 3: Button Polling
+ * ========================= */
+
 static void vTaskButtonPolling(void *pvParameters)
 {
-    for (;;)
+    uint8_t physical_value = 1;
+
+    while(1)
     {
         /*
-         * Con pull-down:
-         * 0 = no presionado
-         * 1 = presionado
+         * Boton con logica invertida:
+         * Pin fisico = 1 -> no presionado
+         * Pin fisico = 0 -> presionado
+         *
+         * Valor guardado:
+         * 0 -> no presionado
+         * 1 -> presionado
          */
-        button_state = GPIO_ReadPinInput(BUTTON_PORT, BUTTON_PIN);
+        physical_value = (uint8_t)GPIO_ReadPinInput(BUTTON_GPIO, BUTTON_PIN);
+
+        button_state = (uint8_t)!physical_value;
 
         vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 
+/* =========================
+ * Task 4: LED Control
+ * ========================= */
+
 static void vTaskLedControl(void *pvParameters)
 {
-    while (1)
+    while(1)
     {
-        if (light_value < LIGHT_THRESHOLD)
+        if(light_value < LIGHT_THRESHOLD)
         {
             LED_BLUE_ON();
         }
@@ -225,7 +281,7 @@ static void vTaskLedControl(void *pvParameters)
             LED_BLUE_OFF();
         }
 
-        if (temp_value > TEMP_THRESHOLD)
+        if(temp_value > TEMP_THRESHOLD)
         {
             LED_RED_ON();
         }
@@ -234,12 +290,7 @@ static void vTaskLedControl(void *pvParameters)
             LED_RED_OFF();
         }
 
-        /*
-         * Boton:
-         * 1 = presionado
-         * 0 = no presionado
-         */
-        if (button_state == 1)
+        if(button_state == 1U)
         {
             LED_GREEN_ON();
         }
@@ -252,9 +303,13 @@ static void vTaskLedControl(void *pvParameters)
     }
 }
 
+/* =========================
+ * Task 5: Serial Monitor
+ * ========================= */
+
 static void vTaskSerialMonitor(void *pvParameters)
 {
-    while (1)
+    while(1)
     {
         PRINTF("Light: %u | Temp: %u | Button: %u\r\n",
                light_value,
