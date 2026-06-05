@@ -275,11 +275,9 @@ static void vTaskSystemControl(void *pvParameters)
     uint16_t temp_value = 0;
     uint16_t button_value = 0;
 
-    TickType_t lastPrintTime = xTaskGetTickCount();
-
     while(1)
     {
-        if(xQueueReceive(sensorQueue, &msg, pdMS_TO_TICKS(100)) == pdPASS)
+        if(xQueueReceive(sensorQueue, &msg, portMAX_DELAY) == pdPASS)
         {
             switch(msg.type)
             {
@@ -325,16 +323,6 @@ static void vTaskSystemControl(void *pvParameters)
             {
                 LED_GREEN_OFF();
             }
-        }
-
-        if((xTaskGetTickCount() - lastPrintTime) >= pdMS_TO_TICKS(1500))
-        {
-            PRINTF("Light: %u | Temp: %u | Button: %u\r\n",
-                   light_value,
-                   temp_value,
-                   button_value);
-
-            lastPrintTime = xTaskGetTickCount();
         }
     }
 }

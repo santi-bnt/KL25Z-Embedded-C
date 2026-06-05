@@ -29,14 +29,14 @@ Centro     -> PTB2 / ADC0_SE12
 ### Botón
 
 ```text
-PTB0 ---- botón ---- GND
+PTB0 ---- botón ---- 3.3V
 ```
 
 Lógica del botón:
 
 ```text
-1 = no presionado
-0 = presionado
+0 = no presionado
+1 = presionado
 ```
 
 ## Liga al video
