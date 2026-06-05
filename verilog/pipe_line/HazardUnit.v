@@ -1,4 +1,4 @@
-module HazardUnit(
+module HazardUnit( // Detecta riesgos del pipeline y decide si se usa stall, flush o forwarding
     input [4:0] Rs1D,
     input [4:0] Rs2D,
     input [4:0] Rs1E,

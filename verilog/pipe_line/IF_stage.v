@@ -1,4 +1,4 @@
-module IF_stage(
+module IF_stage( // Etapa de fetch: guarda el PC y lee la instruccion de memoria
     input clk,
     input rst,
     input StallF,

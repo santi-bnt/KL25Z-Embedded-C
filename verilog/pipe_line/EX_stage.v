@@ -1,4 +1,4 @@
-module EX_stage(
+module EX_stage( // Etapa de ejecucion: usa la ALU, calcula branches y aplica forwarding
     input [31:0] RD1E,
     input [31:0] RD2E,
     input [31:0] PCE,

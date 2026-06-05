@@ -1,4 +1,4 @@
-module MEM_stage(
+module MEM_stage( // Etapa de memoria: lee o escribe datos usando la direccion de la ALU
     input clk,
     input MemWriteM,
     input [31:0] ALUResultM,

@@ -1,4 +1,4 @@
-module ID_stage(
+module ID_stage( // Etapa de decode: separa la instruccion, lee registros y genera inmediatos
     input clk,
     input [31:0] InstrD,
     input RegWriteW,

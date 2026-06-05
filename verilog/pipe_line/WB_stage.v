@@ -1,4 +1,4 @@
-module WB_stage(
+module WB_stage( // Etapa de write back: escoge el resultado que regresa al Register File
     input [1:0] ResultSrcW,
     input [31:0] ALUResultW,
     input [31:0] ReadDataW,
