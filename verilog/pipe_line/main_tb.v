@@ -31,7 +31,6 @@ end
 initial begin
     $display("PCF | InstrD | ALUResultE | ResultW | StallF | StallD | FlushD | FlushE | ForwardAE | ForwardBE");
     $monitor("%h | %h | %h | %h | %b | %b | %b | %b | %b | %b",
-        $time,
         dut.PCF,
         dut.InstrD,
         dut.ALUResultE,
