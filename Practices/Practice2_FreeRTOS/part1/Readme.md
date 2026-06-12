@@ -214,5 +214,5 @@ Estas limitaciones son intencionales para esta etapa. En la Parte 2 se reemplaza
 ## Liga al video
 
 ```text
-Pegar aqui la liga del video
+https://drive.google.com/file/d/1r3tFSQxEbtizOQSsYtAGQ4lo3t3vvj1e/view?usp=sharing
 ```
