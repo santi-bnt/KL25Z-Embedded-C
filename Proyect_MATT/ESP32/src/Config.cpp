@@ -3,21 +3,21 @@
 // =======================================================
 // WIFI
 // =======================================================
-const char* ssid = "SAZER 2432";
-const char* password = "12345678";
+const char* ssid = "AQUI_VA_EL_NOMBRE_DEL_WIFI";
+const char* password = "AQUI_VA_LA_CONTRASENA_DEL_WIFI";
 
 const char* wifiSsids[] = {
-  "SAZER 2432",
-  "iPhone Joshua",
-  "KOKITO 2852",
-  "Hamiosh"
+  "AQUI_VA_WIFI_1",
+  "AQUI_VA_WIFI_2",
+  "AQUI_VA_WIFI_3",
+  "AQUI_VA_WIFI_4"
 };
 
 const char* wifiPasswords[] = {
-  "12345678",
-  "12345678",
-  "23456789",
-  "12345678"
+  "AQUI_VA_CONTRASENA_WIFI_1",
+  "AQUI_VA_CONTRASENA_WIFI_2",
+  "AQUI_VA_CONTRASENA_WIFI_3",
+  "AQUI_VA_CONTRASENA_WIFI_4"
 };
 
 const int wifiNetworkCount = sizeof(wifiSsids) / sizeof(wifiSsids[0]);
@@ -25,8 +25,8 @@ const int wifiNetworkCount = sizeof(wifiSsids) / sizeof(wifiSsids[0]);
 // =======================================================
 // FIREBASE
 // =======================================================
-String databaseURL = "https://matt-205c1-default-rtdb.firebaseio.com";
-const char* firebaseHost = "matt-205c1-default-rtdb.firebaseio.com";
+String databaseURL = "https://AQUI_VA_TU_PROYECTO.firebaseio.com";
+const char* firebaseHost = "AQUI_VA_TU_PROYECTO.firebaseio.com";
 WiFiClientSecure client;
 
 // =======================================================

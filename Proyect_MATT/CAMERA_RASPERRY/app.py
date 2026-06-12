@@ -25,7 +25,7 @@ PUSH_W, PUSH_H = 640, 360
 CORNERS_FILE = "corners.json"
 REFERENCE_FILE = "reference.jpg"
 
-FIREBASE_DB = "https://matt-205c1-default-rtdb.firebaseio.com"
+FIREBASE_DB = "https://AQUI_VA_TU_PROYECTO.firebaseio.com"
 
 BOARD_W_MM_DEFAULT = 1200.0
 BOARD_H_MM_DEFAULT = 900.0
